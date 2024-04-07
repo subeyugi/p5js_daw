@@ -1,7 +1,17 @@
 html, body {
+<<<<<<< HEAD
   margin: 0;
   padding: 0;
 }
 canvas {
   display: block;
 }
+=======
+    margin: 0;
+    padding: 0;
+  }
+  canvas {
+    display: block;
+  }
+  
+>>>>>>> 017fe21 (daw on p5js)
