@@ -9,6 +9,12 @@ let playButton;
 let tempoBox;
 let SnapSelect;
 let snapOption = ["1/6", "1/4", "1/3", "1/2", "1", "2", "4"];
+let scaleButton;
+let edo = -1;
+let noteName = [];
+let noteFreq = [];
+let noteType = [];
+let isScaleOpen = false;
 let snap = 1 / 2;
 let resetButton;
 let resolution = 12;
@@ -28,13 +34,14 @@ let lineColor1 = 100;
 let lineColor2 = 150;
 let red = [255, 0, 0];
 let music;
-let isWhite = [1, 0, 1, 2, 0, 1, 0, 1, 1, 0, 1, 0];
 let keyBoardColor = [180, 220, 255];
 let freq = [];
 let volume = 0.1;
 let speed = 2;
 let copyNotes = [];
+let scaleInput;
 
+let scaleButtonColor = ["#EEEEEE", "#AAAAAA"];
 class Note{
     constructor(note, start, end){
         this.available_ = true;
@@ -141,8 +148,21 @@ function saveFile(data){
     window.URL.revokeObjectURL(url);
 }
 
+function preload(){
+    scaleInput = loadStrings("scale.txt");
+}
+
 function setup() {
     createCanvas(windowWidth, windowHeight);
+
+    edo = 12;
+    for(let i = 0; i < edo; ++i){
+        input = scaleInput[i].split(' ');
+        noteName[i] = input[0];
+        noteFreq[i] = parseFloat(input[1]);
+        noteType[i] = parseInt(input[2]);
+    }
+
     cntNote = int((windowHeight - taskBarSpace) / gridIntervalY);
     taskBarY = cntNote * gridIntervalY;
     textPositionY = taskBarY + 25;
@@ -159,6 +179,10 @@ function setup() {
     tempoBox.size(40);
     tempoBox.position(100, buttonPositionY);
     snapSelect = createSelect();
+    scaleButton = createButton("scale");
+    scaleButton.mousePressed(scaleClicked);
+    scaleButton.style("background-color", scaleButtonColor[0]);
+
     for(let i = 0; i < snapOption.length; ++i){
       snapSelect.option(snapOption[i]);
     }
@@ -289,7 +313,7 @@ function showGrid(){
         line(0, i * gridIntervalY, windowWidth, i * gridIntervalY);
     }
     for(let i = 0; i < cntNote; ++i){//塗りつぶし
-        fill(keyBoardColor[isWhite[i % 12]]);
+        fill(keyBoardColor[noteType[i % 12]]);
         rect(0, (cntNote - i - 1) * gridIntervalY, windowWidth, gridIntervalY);
     }
 
@@ -318,6 +342,23 @@ function showGrid(){
     noStroke();
     text("tempo", 105, textPositionY);
     text("snap", 165, textPositionY);
+
+    if(isScaleOpen){
+        fill(220);
+        stroke(0);
+        let textInterval = 20;
+        rect(400, 30, 220, edo * textInterval + 10);
+
+        fill(0);
+        noStroke();
+        translate(420, 50);
+        for(let i = 0; i < edo; ++i){
+            text(noteName[i], 0, i * textInterval);
+            text(noteFreq[i].toFixed(3), 80, i * textInterval);
+            text(noteType[i], 170, i * textInterval);
+        }
+        translate(-420, -50);
+    }
 }
 
 function showPointer(){
@@ -402,6 +443,7 @@ function windowResized(){
     tempoBox.position(100 ,buttonPositionY);
     snapSelect.position(160, buttonPositionY);
     resetButton.position(210, buttonPositionY);
+    scaleButton.position(260, buttonPositionY);
     for(let i = 0; i < cntNote; ++i){
         freq[i] = 110.0 * pow(2.0, i / 12.0);
     }
@@ -439,14 +481,25 @@ function dark(color){
 }
 
 function findSelectedNote(){
-    if(mouseEndX == -1 && mouseEndY == -1 && selectNoteIdx.length > 0){//既に選択済み
-        for(let i = 0; i < selectNoteIdx.length; ++i){
-            let note = music.tracks_[0].notes_[selectNoteIdx[i]];
-            if(note.start_ <= mouseStartX && mouseStartX < note.end_ && note.note_ == mouseStartY){
-                return true;
+    if(mouseEndX == -1 && mouseEndY == -1 && selectNoteIdx.length > 0){
+        if(nowKey == 'a'){//既に選択済み、追加で選択
+            for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
+                let note = music.tracks_[0].notes_[i];
+                if(note.available_ && note.start_ <= mouseStartX && mouseStartX < note.end_ && note.note_ == mouseStartY){
+                    music.tracks_[0].notes_[i].selected_ = true;
+                    selectNoteIdx.push(i);
+                    return true;
+                }
             }
+        }else{//既に選択済み、新規選択
+            for(let i = 0; i < selectNoteIdx.length; ++i){
+                let note = music.tracks_[0].notes_[selectNoteIdx[i]];
+                if(note.start_ <= mouseStartX && mouseStartX < note.end_ && note.note_ == mouseStartY){
+                    return true;
+                }
+            }
+            unselectAll();
         }
-        unselectAll();
     }
 
     selectNoteIdx = [];
@@ -458,7 +511,7 @@ function findSelectedNote(){
                 music.tracks_[0].notes_[i].selected_ = true;
                 selectNoteIdx.push(i);
             }
-        }    
+        } 
         return selectNoteIdx.length > 0;
     }else{//複数ノート選択
         for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
@@ -480,6 +533,11 @@ function unselectAll(isDelete = false){
         }
     }
     selectNoteIdx = [];
+}
+
+function scaleClicked(){
+    isScaleOpen = !isScaleOpen;
+    scaleButton.style("background-color", scaleButtonColor[int(isScaleOpen)]);
 }
 
 /*
