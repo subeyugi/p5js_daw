@@ -162,12 +162,8 @@ function setup() {
     for(let i = 0; i < snapOption.length; ++i){
       snapSelect.option(snapOption[i]);
     }
-<<<<<<< HEAD
     snapSelect.position(160, buttonPositionY);
     snapSelect.selected("1");
-=======
-    snapSelect.selected("1/2");
->>>>>>> ec5b2bf (daw on p5js)
     snapSelect.changed(changeSnap);
     resetButton = createButton("reset");
     resetButton.position(210, buttonPositionY);
