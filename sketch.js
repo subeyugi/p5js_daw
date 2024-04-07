@@ -219,6 +219,7 @@ function mouseDragged(){
     if(mouseStartX == -1 || mouseStartY == -1) return;
     if(mouseY >= taskBarY) return;
     if(nowKey == 'p') return;
+    if(nowKeyCode == SHIFT) return;
     
     mouseEndX = getMouseXIdx();
     mouseEndY = getMouseYIdx();
@@ -253,14 +254,13 @@ function mouseDragged(){
 
 function mouseReleased(){
     polySynth.noteRelease();
-    if(mouseStartX == -1 || mouseStartY == -1 || mouseY >= taskBarY){
+    if(mouseStartX == -1 || mouseStartY == -1 || mouseY >= taskBarY || selectNoteIdx.length > 0 || nowKeyCode == SHIFT){
       mouseStartX = -1;
       mouseStartY = -1;
       mouseEndX = -1;
       mouseEndY = -1;
       return;
     }
-    if(selectNoteIdx.length > 0) return;
     
     mouseEndX = getMouseXIdx()
     mouseEndY = getMouseYIdx();
@@ -299,7 +299,7 @@ function showGrid(){
         line(i * gridIntervalX, 0, i * gridIntervalX, taskBarY);
     }
 
-    for(let i = 0; i < music.tracks_.length; ++i){
+    for(let i = 0; i < music.tracks_.length; ++i){//選択範囲
         for(let j = 0; j < music.tracks_[i].notes_.length; ++j){
             const note = music.tracks_[i].notes_[j];
             if(note.available_){
@@ -321,7 +321,7 @@ function showGrid(){
 }
 
 function showPointer(){
-    if(selectNoteIdx.length == 0 && mouseStartX >= 0 && mouseStartX < mouseEndX){
+    if(selectNoteIdx.length == 0 && mouseStartX != -1 && mouseStartX < mouseEndX){
         fill(light(red));
         rect(mouseStartX * gridIntervalX, (cntNote - mouseStartY - 1) * gridIntervalY, (mouseEndX - mouseStartX) * gridIntervalX, (-mouseEndY + mouseStartY + 1) * gridIntervalY);
     }
@@ -454,7 +454,7 @@ function findSelectedNote(){
         selectNoteIdx = [];
         for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
             let note = music.tracks_[0].notes_[i];
-            if(note.start_ <= mouseStartX && mouseStartX < note.end_ && note.note_ == mouseStartY){
+            if(note.available_ && note.start_ <= mouseStartX && mouseStartX < note.end_ && note.note_ == mouseStartY){
                 music.tracks_[0].notes_[i].selected_ = true;
                 selectNoteIdx.push(i);
             }
@@ -463,7 +463,7 @@ function findSelectedNote(){
     }else{//複数ノート選択
         for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
             let note = music.tracks_[0].notes_[i];
-            if(mouseStartX <= note.start_ && note.end_ <= mouseEndX && mouseEndY <= note.note_ && note.note_ <= mouseStartY){
+            if(note.available_ && mouseStartX <= note.start_ && note.end_ <= mouseEndX && mouseEndY <= note.note_ && note.note_ <= mouseStartY){
                 music.tracks_[0].notes_[i].selected_ = true;
                 selectNoteIdx.push(i);
             }
