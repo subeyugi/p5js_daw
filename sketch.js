@@ -12,7 +12,8 @@ let snapOption = ["1/6", "1/4", "1/3", "1/2", "1", "2", "4"];
 let snap = 1 / 2;
 let resetButton;
 let resolution = 12;
-let nowKey = 0;
+let nowKey = -1;
+let nowKeyCode = -1;
 let nowPlay = -1;
 let taskBarY = 0;
 let cntNote = 0;
@@ -32,6 +33,7 @@ let keyBoardColor = [180, 220, 255];
 let freq = [];
 let volume = 0.1;
 let speed = 2;
+let copyNotes = [];
 
 class Note{
     constructor(note, start, end){
@@ -188,11 +190,8 @@ function mousePressed(){
       fullscreen(true);
       return;
     }
-    if(mouseY >= taskBarY){
-        for(let i = 0; i < selectNoteIdx.length; ++i){
-            music.tracks_[0].notes_[selectNoteIdx[i]].selected_ = false;
-        }
-        selectNoteIdx = [];
+    if(mouseY >= taskBarY){//範囲外選択
+        unselectAll();
         return;
     }
     
@@ -200,9 +199,12 @@ function mousePressed(){
     mouseStartY = getMouseYIdx();
     mouseEndX = -1;
     mouseEndY = -1;
-    if(nowKey == 65){//a: 複数選択
+    if(findSelectedNote() && nowKeyCode == SHIFT){
+        unselectAll(true);
+    }
+    if(nowKey == 'a'){//a: 複数選択
         
-    }else if(nowKey == 80){//p : 和音を鳴らす
+    }else if(nowKey == 'p'){//p : 和音を鳴らす
         for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
             let note = music.tracks_[0].notes_[i];
             if(note.available_){
@@ -211,7 +213,7 @@ function mousePressed(){
                 }
             }
         }
-    }else if(nowKey != SHIFT){//単一選択
+    }else if(nowKeyCode != SHIFT){//単一選択
         polySynth.noteAttack(freq[mouseStartY], volume);
         nowPlay = mouseStartY;
     }
@@ -220,18 +222,33 @@ function mousePressed(){
 function mouseDragged(){
     if(mouseStartX == -1 || mouseStartY == -1) return;
     if(mouseY >= taskBarY) return;
-    if(nowKey == 80) return;
+    if(nowKey == 'p') return;
     
     mouseEndX = getMouseXIdx();
     mouseEndY = getMouseYIdx();
-    if(nowKey == 65){
+    if(selectNoteIdx.length > 0){
+        if(nowKey == 'w'){//w: 選択ノート横移動
+            for(let i = 0; i < selectNoteIdx.length; ++i){
+                music.tracks_[0].notes_[selectNoteIdx[i]].start_ += (mouseEndX - mouseStartX);
+                music.tracks_[0].notes_[selectNoteIdx[i]].end_ += (mouseEndX - mouseStartX);
+            }
+            mouseStartX = mouseEndX;
+        }else{
+            for(let i = 0; i < selectNoteIdx.length; ++i){
+                music.tracks_[0].notes_[selectNoteIdx[i]].note_ += (mouseEndY - mouseStartY);
+            }
+            mouseStartY = mouseEndY;
+        }
+        return;
+    }
+    if(nowKey == 'a'){
         
     }
-    if(nowKey != 65){
+    if(nowKey != 'a'){
         mouseStartY = mouseEndY;
     }
 
-    if(nowKey != 65 && nowKey != 80 && nowPlay != mouseEndY){
+    if(nowKey != 'a' && nowKey != 'p' && nowPlay != mouseEndY){
         polySynth.noteRelease();
         polySynth.noteAttack(freq[mouseEndY], volume, 0.05);
         nowPlay = mouseEndY;
@@ -247,6 +264,7 @@ function mouseReleased(){
       mouseEndY = -1;
       return;
     }
+    if(selectNoteIdx.length > 0) return;
     
     mouseEndX = getMouseXIdx()
     mouseEndY = getMouseYIdx();
@@ -255,21 +273,17 @@ function mouseReleased(){
         mouseStartY = -1;
         return;
     }
-    if(nowKey == 65){//a: 選択区間削除
-        for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
-            let note = music.tracks_[0].notes_[i];
-            if(mouseStartX <= note.start_ && note.end_ <= mouseEndX && mouseEndY <= note.note_ && note.note_ <= mouseStartY){
-                music.tracks_[0].notes_[i].selected_ = true;
-                selectNoteIdx.push(i);
-            }
-        }
-    }else if(nowKey == 80){//p 再生
+    if(nowKey == 'a'){//a: 選択区間削除
+        findSelectedNote();
+    }else if(nowKey == 'p'){//p: 再生
 
     }else if(mouseStartY == mouseEndY && mouseStartX < mouseEndX){//単一追加・削除
         music.tracks_[0].addNote(new Note(mouseStartY, mouseStartX, mouseEndX), nowKey === SHIFT);
     }
     mouseStartX = -1;
     mouseStartY = -1;
+    mouseEndX = -1;
+    mouseEndY = -1;
     nowPlay = -1;
 }
 
@@ -299,6 +313,11 @@ function showGrid(){
             }
         }
     }
+
+    stroke(200);
+    let nowX = getMouseXIdx();
+    line(nowX * gridIntervalX, 0, nowX * gridIntervalX, taskBarY);
+
     fill(0);
     noStroke();
     text("tempo", 105, textPositionY);
@@ -306,11 +325,7 @@ function showGrid(){
 }
 
 function showPointer(){
-    /*fill(red);
-    noStroke();
-    ellipse(mouseX, mouseY, 5, 5);
-    */
-    if(mouseStartX >= 0 && mouseStartX < mouseEndX){
+    if(selectNoteIdx.length == 0 && mouseStartX >= 0 && mouseStartX < mouseEndX){
         fill(light(red));
         rect(mouseStartX * gridIntervalX, (cntNote - mouseStartY - 1) * gridIntervalY, (mouseEndX - mouseStartX) * gridIntervalX, (-mouseEndY + mouseStartY + 1) * gridIntervalY);
     }
@@ -331,18 +346,44 @@ function playClicked(){
 }
 
 function keyPressed(){
-    nowKey = keyCode;
-    if(nowKey == DELETE && selectNoteIdx.length > 0){
-        for(let i = 0; i < selectNoteIdx.length; ++i){
-            music.tracks_[0].notes_[selectNoteIdx[i]].available_ = false;
-            music.tracks_[0].notes_[selectNoteIdx[i]].selected_ = false;
+    nowKey = key;
+    nowKeyCode = keyCode;
+    if(nowKeyCode == DELETE && selectNoteIdx.length > 0){
+        unselectAll(true);
+    }else if(keyIsDown(CONTROL) && nowKey == 'c'){//ctrl + c: 選択ノートコピー
+        copyNotes = [];
+        for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
+            let note = music.tracks_[0].notes_[i];
+            if(note.selected_){
+                copyNotes.push(note);
+            }
         }
-        selectNoteIdx = [];
+    }else if(keyIsDown(CONTROL) && nowKey == 'x'){//ctrl + x: 選択ノートカット
+        copyNotes = [];
+        for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
+            let note = music.tracks_[0].notes_[i];
+            if(note.selected_){
+                copyNotes.push(note);
+            }
+        }
+        unselectAll(true);
+    }else if(keyIsDown(CONTROL) && nowKey == 'v'){//ctrl + v: 貼り付け
+        let nowX = getMouseXIdx();
+        let firstNoteX = Infinity;
+        for(let i = 0; i < copyNotes.length; ++i){
+            if(copyNotes[i].start_ < firstNoteX){
+                firstNoteX = copyNotes[i].start_;
+            }
+        }
+        for(let i = 0; i < copyNotes.length; ++i){
+            music.tracks_[0].notes_.push(new Note(copyNotes[i].note_, copyNotes[i].start_ - firstNoteX + nowX, copyNotes[i].end_ - firstNoteX + nowX));
+        }
     }
 }
 
 function keyReleased(){
     nowKey = -1;
+    nowKeyCode = -1;
 }
 
 function toHex(num, byte){
@@ -355,19 +396,19 @@ function toHex(num, byte){
 }
 
 function windowResized(){
-  resizeCanvas(windowWidth, windowHeight);
-  cntNote = int((windowHeight - taskBarSpace) / gridIntervalY);
-  taskBarY = cntNote * gridIntervalY;
-  textPositionY = taskBarY + 20;
-  buttonPositionY = taskBarY + 25;
-  saveButton.position(0, buttonPositionY);
-  playButton.position(50, buttonPositionY);
-  tempoBox.position(100 ,buttonPositionY);
-  snapSelect.position(160, buttonPositionY);
-  resetButton.position(210, buttonPositionY);
-  for(let i = 0; i < cntNote; ++i){
-      freq[i] = 110.0 * pow(2.0, i / 12.0);
-  }
+    resizeCanvas(windowWidth, windowHeight);
+    cntNote = int((windowHeight - taskBarSpace) / gridIntervalY);
+    taskBarY = cntNote * gridIntervalY;
+    textPositionY = taskBarY + 20;
+    buttonPositionY = taskBarY + 25;
+    saveButton.position(0, buttonPositionY);
+    playButton.position(50, buttonPositionY);
+    tempoBox.position(100 ,buttonPositionY);
+    snapSelect.position(160, buttonPositionY);
+    resetButton.position(210, buttonPositionY);
+    for(let i = 0; i < cntNote; ++i){
+        freq[i] = 110.0 * pow(2.0, i / 12.0);
+    }
 }
 
 function getMouseXIdx(){
@@ -399,6 +440,51 @@ function light(color){
 
 function dark(color){
     return [max(0, color[0] - 50), max(0, color[1] - 50), max(0, color[2] - 50)];
+}
+
+function findSelectedNote(){
+    if(mouseEndX == -1 && mouseEndY == -1){//単一ノート選択
+        if(selectNoteIdx.length > 0){
+            for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
+                let note = music.tracks_[0].notes_[i];
+                if(note.start_ <= mouseStartX && mouseStartX <= note.end_ && note.note_ == mouseStartY){
+                    return true;
+                }
+            }
+            unselectAll();
+            return false;
+        }else{
+            selectNoteIdx = [];
+            for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
+                let note = music.tracks_[0].notes_[i];
+                if(note.start_ <= mouseStartX && mouseStartX <= note.end_ && note.note_ == mouseStartY){
+                    music.tracks_[0].notes_[i].selected_ = true;
+                    selectNoteIdx.push(i);
+                }
+            }    
+            return selectNoteIdx.length > 0;
+        }
+    }else{//複数ノート選択
+        selectNoteIdx = [];
+        for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
+            let note = music.tracks_[0].notes_[i];
+            if(mouseStartX <= note.start_ && note.end_ <= mouseEndX && mouseEndY <= note.note_ && note.note_ <= mouseStartY){
+                music.tracks_[0].notes_[i].selected_ = true;
+                selectNoteIdx.push(i);
+            }
+        }
+        return selectNoteIdx.length > 0;
+    }
+}
+
+function unselectAll(isDelete = false){
+    for(let i = 0; i < selectNoteIdx.length; ++i){
+        music.tracks_[0].notes_[selectNoteIdx[i]].selected_ = false;
+        if(isDelete){
+            music.tracks_[0].notes_[selectNoteIdx[i]].available_ = false;
+        }
+    }
+    selectNoteIdx = [];
 }
 
 /*
