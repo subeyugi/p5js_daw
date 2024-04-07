@@ -439,29 +439,28 @@ function dark(color){
 }
 
 function findSelectedNote(){
-    if(mouseEndX == -1 && mouseEndY == -1){//単一ノート選択
-        if(selectNoteIdx.length > 0){
-            for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
-                let note = music.tracks_[0].notes_[i];
-                if(note.start_ <= mouseStartX && mouseStartX <= note.end_ && note.note_ == mouseStartY){
-                    return true;
-                }
+    if(mouseEndX == -1 && mouseEndY == -1 && selectNoteIdx.length > 0){//既に選択済み
+        for(let i = 0; i < selectNoteIdx.length; ++i){
+            let note = music.tracks_[0].notes_[selectNoteIdx[i]];
+            if(note.start_ <= mouseStartX && mouseStartX < note.end_ && note.note_ == mouseStartY){
+                return true;
             }
-            unselectAll();
-            return false;
-        }else{
-            selectNoteIdx = [];
-            for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
-                let note = music.tracks_[0].notes_[i];
-                if(note.start_ <= mouseStartX && mouseStartX <= note.end_ && note.note_ == mouseStartY){
-                    music.tracks_[0].notes_[i].selected_ = true;
-                    selectNoteIdx.push(i);
-                }
-            }    
-            return selectNoteIdx.length > 0;
         }
-    }else{//複数ノート選択
+        unselectAll();
+    }
+
+    selectNoteIdx = [];
+    if(mouseEndX == -1 && mouseEndY == -1){//単一選択
         selectNoteIdx = [];
+        for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
+            let note = music.tracks_[0].notes_[i];
+            if(note.start_ <= mouseStartX && mouseStartX < note.end_ && note.note_ == mouseStartY){
+                music.tracks_[0].notes_[i].selected_ = true;
+                selectNoteIdx.push(i);
+            }
+        }    
+        return selectNoteIdx.length > 0;
+    }else{//複数ノート選択
         for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
             let note = music.tracks_[0].notes_[i];
             if(mouseStartX <= note.start_ && note.end_ <= mouseEndX && mouseEndY <= note.note_ && note.note_ <= mouseStartY){
