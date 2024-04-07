@@ -52,17 +52,17 @@ class Track{
         this.midiData_ = [];
     }
 
-    addNote(note, erase){
+    addNote(note){
         for(let i = 0; i < this.notes_.length; ++i){
-            if(this.notes_[i].note_ == note.note_){//同じ音があれば
-                if(this.notes_[i].end_ <= note.start_) continue;
-                if(note.end_ <= this.notes_[i].start_) continue;
-                this.notes_[i].available_ = false;
+            if(this.notes_[i].note_ == note.note_ && this.notes_[i].available_){//同じ音があれば
+                if(this.notes_[i].start_ <= note.start_ && note.start_ < this.notes_[i].end_){//音に重なりがあれば
+                    this.notes_[i].available_ = false;
+                }else if(this.notes_[i].start_ < note.end_ && note.end_ <= this.notes_[i].end_){
+                    this.notes_[i].available_ = false;
+                }
             }
         }
-        if(!erase){
-            this.notes_.push(note);
-        }
+        this.notes_.push(note);
     }
 
     updateMidi(){
@@ -163,7 +163,7 @@ function setup() {
       snapSelect.option(snapOption[i]);
     }
     snapSelect.position(160, buttonPositionY);
-    snapSelect.selected("1");
+    snapSelect.selected("1/2");
     snapSelect.changed(changeSnap);
     resetButton = createButton("reset");
     resetButton.position(210, buttonPositionY);
@@ -274,7 +274,7 @@ function mouseReleased(){
     }else if(nowKey == 'p'){//p: 再生
 
     }else if(mouseStartY == mouseEndY && mouseStartX < mouseEndX){//単一追加・削除
-        music.tracks_[0].addNote(new Note(mouseStartY, mouseStartX, mouseEndX), nowKey === SHIFT);
+        music.tracks_[0].addNote(new Note(mouseStartY, mouseStartX, mouseEndX));
     }
     mouseStartX = -1;
     mouseStartY = -1;
