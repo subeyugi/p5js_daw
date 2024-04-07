@@ -9,7 +9,7 @@ let playButton;
 let tempoBox;
 let SnapSelect;
 let snapOption = ["1/6", "1/4", "1/3", "1/2", "1", "2", "4"];
-let snap = 1;
+let snap = 1 / 2;
 let resetButton;
 let resolution = 12;
 let nowKey = 0;
@@ -19,14 +19,13 @@ let cntNote = 0;
 let taskBarSpace = 50;
 let textPositionY = 0;
 let buttonPositionY = 0;
-
+let selectNoteIdx = [];
 let song;
 let polySynth;
 let backGround = 200;
 let lineColor1 = 100;
 let lineColor2 = 150;
 let red = [255, 0, 0];
-let lightRed = [255, 0, 0, 30];
 let music;
 let isWhite = [1, 0, 1, 2, 0, 1, 0, 1, 1, 0, 1, 0];
 let keyBoardColor = [180, 220, 255];
@@ -37,6 +36,7 @@ let speed = 2;
 class Note{
     constructor(note, start, end){
         this.available_ = true;
+        this.selected_ = false;
         this.note_ = note;
         this.start_ = start;
         this.end_ = end;
@@ -95,7 +95,7 @@ class Music{
         data = concat(data, [0x00, 0x00, 0x00, 0x06]);        //ブロック長
         data = concat(data, [0x00, 0x01]);                    //フォーマット
         data = concat(data, [0x00, this.tracks_.length + 1]); //トラック数
-        data = concat(data, toHex(resolution * 16, 2));            //四分音符の分解能
+        data = concat(data, toHex(resolution * 16, 2));       //四分音符の分解能
 
         data = concat(data, [0x4d, 0x54, 0x72, 0x6b]);
         data = concat(data, [0x00, 0x00, 0x00, 0x0b]);
@@ -160,8 +160,12 @@ function setup() {
     for(let i = 0; i < snapOption.length; ++i){
       snapSelect.option(snapOption[i]);
     }
+<<<<<<< HEAD
     snapSelect.position(160, buttonPositionY);
     snapSelect.selected("1");
+=======
+    snapSelect.selected("1/2");
+>>>>>>> ec5b2bf (daw on p5js)
     snapSelect.changed(changeSnap);
     resetButton = createButton("reset");
     resetButton.position(210, buttonPositionY);
@@ -184,14 +188,20 @@ function mousePressed(){
       fullscreen(true);
       return;
     }
-    if(mouseY >= taskBarY) return;
+    if(mouseY >= taskBarY){
+        for(let i = 0; i < selectNoteIdx.length; ++i){
+            music.tracks_[0].notes_[selectNoteIdx[i]].selected_ = false;
+        }
+        selectNoteIdx = [];
+        return;
+    }
     
     mouseStartX = getMouseXIdx();
     mouseStartY = getMouseYIdx();
     mouseEndX = -1;
     mouseEndY = -1;
-    if(nowKey == 65){//複数選択
-
+    if(nowKey == 65){//a: 複数選択
+        
     }else if(nowKey == 80){//p : 和音を鳴らす
         for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
             let note = music.tracks_[0].notes_[i];
@@ -214,6 +224,9 @@ function mouseDragged(){
     
     mouseEndX = getMouseXIdx();
     mouseEndY = getMouseYIdx();
+    if(nowKey == 65){
+        
+    }
     if(nowKey != 65){
         mouseStartY = mouseEndY;
     }
@@ -242,8 +255,14 @@ function mouseReleased(){
         mouseStartY = -1;
         return;
     }
-    if(nowKey == 65){//選択区間削除
-
+    if(nowKey == 65){//a: 選択区間削除
+        for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
+            let note = music.tracks_[0].notes_[i];
+            if(mouseStartX <= note.start_ && note.end_ <= mouseEndX && mouseEndY <= note.note_ && note.note_ <= mouseStartY){
+                music.tracks_[0].notes_[i].selected_ = true;
+                selectNoteIdx.push(i);
+            }
+        }
     }else if(nowKey == 80){//p 再生
 
     }else if(mouseStartY == mouseEndY && mouseStartX < mouseEndX){//単一追加・削除
@@ -270,11 +289,12 @@ function showGrid(){
         line(i * gridIntervalX, 0, i * gridIntervalX, taskBarY);
     }
 
-    fill(red);
     for(let i = 0; i < music.tracks_.length; ++i){
         for(let j = 0; j < music.tracks_[i].notes_.length; ++j){
             const note = music.tracks_[i].notes_[j];
             if(note.available_){
+                if(note.selected_) fill(dark(red));
+                else fill(red);
                 rect(note.start_ * gridIntervalX, (cntNote - note.note_ - 1) * gridIntervalY, (note.end_ - note.start_) * gridIntervalX, gridIntervalY);
             }
         }
@@ -291,7 +311,7 @@ function showPointer(){
     ellipse(mouseX, mouseY, 5, 5);
     */
     if(mouseStartX >= 0 && mouseStartX < mouseEndX){
-        fill(lightRed);
+        fill(light(red));
         rect(mouseStartX * gridIntervalX, (cntNote - mouseStartY - 1) * gridIntervalY, (mouseEndX - mouseStartX) * gridIntervalX, (-mouseEndY + mouseStartY + 1) * gridIntervalY);
     }
 }
@@ -312,6 +332,13 @@ function playClicked(){
 
 function keyPressed(){
     nowKey = keyCode;
+    if(nowKey == DELETE && selectNoteIdx.length > 0){
+        for(let i = 0; i < selectNoteIdx.length; ++i){
+            music.tracks_[0].notes_[selectNoteIdx[i]].available_ = false;
+            music.tracks_[0].notes_[selectNoteIdx[i]].selected_ = false;
+        }
+        selectNoteIdx = [];
+    }
 }
 
 function keyReleased(){
@@ -364,6 +391,14 @@ function changeSnap(){
 function resetClicked(){
   polySynth.disconnect();
   polySynth = new p5.PolySynth();
+}
+
+function light(color){
+    return [color[0], color[1], color[2], 30];
+}
+
+function dark(color){
+    return [max(0, color[0] - 50), max(0, color[1] - 50), max(0, color[2] - 50)];
 }
 
 /*
