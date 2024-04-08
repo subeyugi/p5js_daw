@@ -31,17 +31,19 @@ let song;
 let polySynth;
 let backGround = 200;
 let lineColor1 = 100;
-let lineColor2 = 150;
-let red = [255, 0, 0];
+let lineColor2 = 50;
+let red = [255, 50, 50];
 let music;
 let keyBoardColor = [180, 220, 255];
-let freq = [];
 let volume = 0.1;
 let speed = 2;
 let copyNotes = [];
 let scaleInput;
-
 let scaleButtonColor = ["#EEEEEE", "#AAAAAA"];
+let wheelShift = 0;
+let textInterval = 20;
+let colorList = [];
+
 class Note{
     constructor(note, start, end){
         this.available_ = true;
@@ -148,21 +150,18 @@ function saveFile(data){
 }
 
 function preload(){
-    scaleInput = loadTable("scale.csv");
+    scaleInput = loadTable("scale55.csv", "csv");
 }
 
 function setup() {
     createCanvas(windowWidth, windowHeight);
-
     cntNoteInOctave = scaleInput.getRowCount() - 1;
     for(let i = 0; i < cntNoteInOctave; ++i){
         noteName[i] = scaleInput.getString(i + 1, 0);
         noteFreq[i] = parseFloat(scaleInput.getString(i + 1, 1));
         noteColor[i] = scaleInput.getString(i + 1, 2);
     }
-    print(noteName);
-    print(noteFreq);
-    print(noteColor);
+    colorList = Array.from(new Set(noteColor));
 
     cntNote = int((windowHeight - taskBarSpace) / gridIntervalY);
     taskBarY = cntNote * gridIntervalY;
@@ -194,9 +193,6 @@ function setup() {
     resetButton.position(210, buttonPositionY);
     resetButton.mousePressed(resetClicked);
     polySynth = new p5.PolySynth();
-    for(let i = 0; i < cntNote; ++i){
-        freq[i] = 110.0 * pow(2.0, i / 12.0);
-    }
 }
 
 function draw() {
@@ -211,6 +207,7 @@ function mousePressed(){
       fullscreen(true);
       return;
     }
+    if(isScaleOpen) return;
     if(mouseY >= taskBarY){//範囲外選択
         unselectAll();
         return;
@@ -230,12 +227,12 @@ function mousePressed(){
             let note = music.tracks_[0].notes_[i];
             if(note.available_){
                 if(note.start_ <= mouseStartX && mouseStartX < note.end_){
-                    polySynth.noteAttack(freq[note.note_], volume);
+                    polySynth.noteAttack(noteFreq[note.note_], volume);
                 }
             }
         }
     }else if(nowKeyCode != SHIFT){//単一選択
-        polySynth.noteAttack(freq[mouseStartY], volume);
+        polySynth.noteAttack(noteFreq[mouseStartY], volume);
         nowPlay = mouseStartY;
     }
 }
@@ -272,7 +269,7 @@ function mouseDragged(){
 
     if(nowKey != 'a' && nowKey != 'p' && nowPlay != mouseEndY){
         polySynth.noteRelease();
-        polySynth.noteAttack(freq[mouseEndY], volume, 0.05);
+        polySynth.noteAttack(noteFreq[mouseEndY], volume, 0.05);
         nowPlay = mouseEndY;
     }
 }
@@ -310,11 +307,12 @@ function mouseReleased(){
 
 function showGrid(){
     stroke(lineColor1);
+    strokeWeight(0.5);
     for(let i = 0; i <= cntNote; ++i){//横線
         line(0, i * gridIntervalY, windowWidth, i * gridIntervalY);
     }
     for(let i = 0; i < cntNote; ++i){//塗りつぶし
-        fill(noteColor[i % 12]);
+        fill(noteColor[i % cntNoteInOctave]);
         rect(0, (cntNote - i - 1) * gridIntervalY, windowWidth, gridIntervalY);
     }
 
@@ -334,6 +332,13 @@ function showGrid(){
             }
         }
     }
+  
+    fill(220);
+    textSize(6);
+    noStroke();
+    for(let i = 0; i < cntNote; ++i){
+        text(noteName[i % cntNoteInOctave], 0, (cntNote - i - 1) * gridIntervalY + 7);
+    }
 
     stroke(200);
     let nowX = getMouseXIdx();
@@ -341,25 +346,34 @@ function showGrid(){
 
     fill(0);
     noStroke();
+    textSize(12);
     text("tempo", 105, textPositionY);
     text("snap", 165, textPositionY);
+  
+    for(let i = 0; i < colorList.length; ++i){
+        fill(colorList[i]);
+        rect(400 + 25 * i, buttonPositionY, 20, 20);
+    }
 
+    //スケール音の表示
     if(isScaleOpen){
         fill(255);
         stroke(0);
-        let textInterval = 20;
-        rect(400, 30, 300, cntNoteInOctave * textInterval + 10);
+        rect(400, 30, 300, min(cntNoteInOctave * textInterval + 10, taskBarY - 30));
 
         fill(0);
         noStroke();
         translate(420, 50);
         for(let i = 0; i < cntNoteInOctave; ++i){
-            fill(noteColor[i]);
-            rect(170, (i - 1) * textInterval + 5, 65, textInterval);
-            fill(0);
-            text(noteName[i], 0, i * textInterval);
-            text(noteFreq[i].toFixed(3), 80, i * textInterval);
-            text(noteColor[i], 170, i * textInterval);
+            if(i * textInterval + wheelShift >= 0 && i * textInterval + wheelShift <= windowHeight - 110){
+                fill(noteColor[i]);
+                rect(170, (i - 1) * textInterval + 5 + wheelShift, 65, textInterval);
+                fill(0);
+                text(noteName[i], 0, i * textInterval + wheelShift);
+                text(noteFreq[i].toFixed(3), 80, i * textInterval + wheelShift);
+                fill(220);
+                text(noteColor[i], 170, i * textInterval + wheelShift);
+            }
         }
         translate(-420, -50);
     }
@@ -381,7 +395,7 @@ function playClicked(){
     for(let i = 0; i < music.tracks_[0].notes_.length; ++i){
         let note = music.tracks_[0].notes_[i];
         if(note.available_){
-          polySynth.play(freq[note.note_], volume, note.start_ / speed, (note.end_ - note.start_) / speed - 0.1);
+          polySynth.play(noteFreq[note.note_], volume, note.start_ / speed, (note.end_ - note.start_) / speed - 0.1);
         }
     }
 }
@@ -448,8 +462,8 @@ function windowResized(){
     snapSelect.position(160, buttonPositionY);
     resetButton.position(210, buttonPositionY);
     scaleButton.position(260, buttonPositionY);
-    for(let i = 0; i < cntNote; ++i){
-        freq[i] = 110.0 * pow(2.0, i / 12.0);
+    for(let i = cntNoteInOctave; i < cntNote; ++i){
+      noteFreq[i] = 2 * noteFreq[i - cntNoteInOctave];
     }
 }
 
@@ -481,7 +495,7 @@ function light(color){
 }
 
 function dark(color){
-    return [max(0, color[0] - 50), max(0, color[1] - 50), max(0, color[2] - 50)];
+    return [max(0, color[0] - 100), max(0, color[1] - 100), max(0, color[2] - 100)];
 }
 
 function findSelectedNote(){
@@ -502,10 +516,10 @@ function findSelectedNote(){
                     return true;
                 }
             }
-            unselectAll();
         }
     }
 
+    unselectAll();
     selectNoteIdx = [];
     if(mouseEndX == -1 && mouseEndY == -1){//単一選択
         selectNoteIdx = [];
@@ -542,6 +556,15 @@ function unselectAll(isDelete = false){
 function scaleClicked(){
     isScaleOpen = !isScaleOpen;
     scaleButton.style("background-color", scaleButtonColor[int(isScaleOpen)]);
+}
+
+function mouseWheel(event){
+  wheelShift -= event.delta;
+  if(wheelShift < -cntNoteInOctave * textInterval){
+    wheelShift = -cntNoteInOctave * textInterval;
+  }else if(0 < wheelShift){
+    wheelShift = 0;
+  }
 }
 
 /*
