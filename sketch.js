@@ -10,10 +10,10 @@ let tempoBox;
 let SnapSelect;
 let snapOption = ["1/6", "1/4", "1/3", "1/2", "1", "2", "4"];
 let scaleButton;
-let edo = -1;
+let cntNoteInOctave = -1;
 let noteName = [];
 let noteFreq = [];
-let noteType = [];
+let noteColor = [];
 let isScaleOpen = false;
 let snap = 1 / 2;
 let resetButton;
@@ -111,7 +111,6 @@ class Music{
         data = concat(data, [0x00, 0xff, 0x51, 0x03, 0x70, 0xa1, 0x20]);
         data = concat(data, [0x00, 0xff, 0x2f, 0x00]);
         
-
         for(let i = 0; i < this.tracks_.length; ++i){
             this.tracks_[i].updateMidi();
             data = concat(data, this.tracks_[i].midiData_);
@@ -149,19 +148,21 @@ function saveFile(data){
 }
 
 function preload(){
-    scaleInput = loadStrings("scale.txt");
+    scaleInput = loadTable("scale.csv");
 }
 
 function setup() {
     createCanvas(windowWidth, windowHeight);
 
-    edo = 12;
-    for(let i = 0; i < edo; ++i){
-        input = scaleInput[i].split(' ');
-        noteName[i] = input[0];
-        noteFreq[i] = parseFloat(input[1]);
-        noteType[i] = parseInt(input[2]);
+    cntNoteInOctave = scaleInput.getRowCount() - 1;
+    for(let i = 0; i < cntNoteInOctave; ++i){
+        noteName[i] = scaleInput.getString(i + 1, 0);
+        noteFreq[i] = parseFloat(scaleInput.getString(i + 1, 1));
+        noteColor[i] = scaleInput.getString(i + 1, 2);
     }
+    print(noteName);
+    print(noteFreq);
+    print(noteColor);
 
     cntNote = int((windowHeight - taskBarSpace) / gridIntervalY);
     taskBarY = cntNote * gridIntervalY;
@@ -313,7 +314,7 @@ function showGrid(){
         line(0, i * gridIntervalY, windowWidth, i * gridIntervalY);
     }
     for(let i = 0; i < cntNote; ++i){//塗りつぶし
-        fill(keyBoardColor[noteType[i % 12]]);
+        fill(noteColor[i % 12]);
         rect(0, (cntNote - i - 1) * gridIntervalY, windowWidth, gridIntervalY);
     }
 
@@ -344,18 +345,21 @@ function showGrid(){
     text("snap", 165, textPositionY);
 
     if(isScaleOpen){
-        fill(220);
+        fill(255);
         stroke(0);
         let textInterval = 20;
-        rect(400, 30, 220, edo * textInterval + 10);
+        rect(400, 30, 300, cntNoteInOctave * textInterval + 10);
 
         fill(0);
         noStroke();
         translate(420, 50);
-        for(let i = 0; i < edo; ++i){
+        for(let i = 0; i < cntNoteInOctave; ++i){
+            fill(noteColor[i]);
+            rect(170, (i - 1) * textInterval + 5, 65, textInterval);
+            fill(0);
             text(noteName[i], 0, i * textInterval);
             text(noteFreq[i].toFixed(3), 80, i * textInterval);
-            text(noteType[i], 170, i * textInterval);
+            text(noteColor[i], 170, i * textInterval);
         }
         translate(-420, -50);
     }
