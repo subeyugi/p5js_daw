@@ -10,7 +10,12 @@ let tempoBox;
 let SnapSelect;
 let snapOption = ["1/6", "1/4", "1/3", "1/2", "1", "2", "4"];
 let scaleButton;
+let useNoteChbox = [];
+let useNoteIdxs = [];
 let cntNoteInOctave = -1;
+let noteNameInOcgtave = [];
+let noteFreqInOcgtave = [];
+let noteColorInOcgtave = [];
 let noteName = [];
 let noteFreq = [];
 let noteColor = [];
@@ -34,7 +39,6 @@ let lineColor1 = 100;
 let lineColor2 = 50;
 let red = [255, 50, 50];
 let music;
-let keyBoardColor = [180, 220, 255];
 let volume = 0.1;
 let speed = 2;
 let copyNotes = [];
@@ -157,11 +161,15 @@ function setup() {
     createCanvas(windowWidth, windowHeight);
     cntNoteInOctave = scaleInput.getRowCount() - 1;
     for(let i = 0; i < cntNoteInOctave; ++i){
-        noteName[i] = scaleInput.getString(i + 1, 0);
-        noteFreq[i] = parseFloat(scaleInput.getString(i + 1, 1));
-        noteColor[i] = scaleInput.getString(i + 1, 2);
+        noteNameInOcgtave[i] = scaleInput.getString(i + 1, 0);
+        noteFreqInOcgtave[i] = parseFloat(scaleInput.getString(i + 1, 1));
+        noteColorInOcgtave[i] = scaleInput.getString(i + 1, 2);
     }
-    colorList = Array.from(new Set(noteColor));
+    colorList = Array.from(new Set(noteColorInOcgtave));
+    for(let i = 0; i < colorList.length; ++i){
+        useNoteChbox[i] = createCheckbox("", true);
+        useNoteChbox[i].changed(useNoteClicked);
+    }
 
     cntNote = int((windowHeight - taskBarSpace) / gridIntervalY);
     taskBarY = cntNote * gridIntervalY;
@@ -193,6 +201,7 @@ function setup() {
     resetButton.position(210, buttonPositionY);
     resetButton.mousePressed(resetClicked);
     polySynth = new p5.PolySynth();
+    windowResized();
 }
 
 function draw() {
@@ -333,7 +342,7 @@ function showGrid(){
         }
     }
   
-    fill(220);
+    fill(225);
     textSize(6);
     noStroke();
     for(let i = 0; i < cntNote; ++i){
@@ -350,6 +359,7 @@ function showGrid(){
     text("tempo", 105, textPositionY);
     text("snap", 165, textPositionY);
   
+    //色選択
     for(let i = 0; i < colorList.length; ++i){
         fill(colorList[i]);
         rect(400 + 25 * i, buttonPositionY, 20, 20);
@@ -462,8 +472,17 @@ function windowResized(){
     snapSelect.position(160, buttonPositionY);
     resetButton.position(210, buttonPositionY);
     scaleButton.position(260, buttonPositionY);
-    for(let i = cntNoteInOctave; i < cntNote; ++i){
-      noteFreq[i] = 2 * noteFreq[i - cntNoteInOctave];
+    for(let i = 0; i < colorList.length; ++i){
+        useNoteChbox[i].position(400 + 25 * i, buttonPositionY - 20);
+    }
+    useNoteIdxs = [];
+    for(let i = 0; i < 55; ++i){
+        useNoteIdxs[i] = i;
+    }
+    for(let i = 0; i < cntNote; ++i){
+        noteName[i] = noteNameInOcgtave[useNoteIdxs[i % useNoteIdxs.length]];
+        noteFreq[i] = noteFreqInOcgtave[useNoteIdxs[i % useNoteIdxs.length]]
+        noteColor[i] = noteColorInOcgtave[useNoteIdxs[i % useNoteIdxs.length]];
     }
 }
 
@@ -486,8 +505,8 @@ function changeSnap(){
 }
 
 function resetClicked(){
-  polySynth.disconnect();
-  polySynth = new p5.PolySynth();
+    polySynth.disconnect();
+    polySynth = new p5.PolySynth();
 }
 
 function light(color){
@@ -565,6 +584,36 @@ function mouseWheel(event){
   }else if(0 < wheelShift){
     wheelShift = 0;
   }
+}
+
+function useNoteClicked(){
+    let useColorList = [];
+    for(let i = 0; i < colorList.length; ++i){
+        if(useNoteChbox[i].checked()){
+            useColorList.push(colorList[i]);
+        }
+    }
+    useNoteIdxs = [];
+    for(let i = 0; i < cntNoteInOctave; ++i){
+        let existInUseColorList = false;
+        for(let j = 0; j < useColorList.length; ++j){
+            if(noteColorInOcgtave[i] == useColorList[j]){
+                existInUseColorList = true;
+            }
+        }
+        if(existInUseColorList){
+            useNoteIdxs.push(i);
+        }
+    }
+    for(let i = 0; i < cntNote; ++i){
+        noteName[i] = noteNameInOcgtave[useNoteIdxs[i % useNoteIdxs.length]];
+        if(i < useNoteIdxs.length){
+            noteFreq[i] = noteFreqInOcgtave[useNoteIdxs[i]];
+        }else{
+            noteFreq[i] = 2 * noteFreq[i - useNoteIdxs.length];
+        }
+        noteColor[i] = noteColorInOcgtave[useNoteIdxs[i % useNoteIdxs.length]];
+    }
 }
 
 /*
