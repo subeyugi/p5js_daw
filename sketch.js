@@ -22,7 +22,7 @@ let noteColor = [];
 let isScaleOpen = false;
 let snap = 1 / 2;
 let resetButton;
-let resolution = 12;
+let resolution = 48;
 let nowKey = -1;
 let nowKeyCode = -1;
 let nowPlay = -1;
@@ -56,7 +56,7 @@ class Note{
         this.start_ = start;
         this.end_ = end;
     }
-};
+}
 
 class Track{
     constructor(instrument){
@@ -84,6 +84,7 @@ class Track{
             if(this.notes_[i].available_){
                 query.push([0x2d + this.notes_[i].note_, this.notes_[i].start_ * resolution, 0x7f]);//音を鳴らす        (note, start, volume)
                 query.push([0x2d + this.notes_[i].note_, this.notes_[i].end_ * resolution, 0]);     //鳴らすのをやめる
+              print(this.notes_[i].end_ * resolution);
             }
         }
 
@@ -98,7 +99,7 @@ class Track{
         data = concat(data, [0x00, 0xff, 0x2f, 0x00]);  //トラックエンド
         this.midiData_ = data;
     }
-};
+}
 
 class Music{
     constructor(){
@@ -110,12 +111,13 @@ class Music{
         data = concat(data, [0x00, 0x00, 0x00, 0x06]);        //ブロック長
         data = concat(data, [0x00, 0x01]);                    //フォーマット
         data = concat(data, [0x00, this.tracks_.length + 1]); //トラック数
-        data = concat(data, toHex(resolution * 16, 2));       //四分音符の分解能
+        data = concat(data, toHex(resolution, 2));       //四分音符の分解能
 
         data = concat(data, [0x4d, 0x54, 0x72, 0x6b]);
         data = concat(data, [0x00, 0x00, 0x00, 0x0b]);
-        data = concat(data, [0x00, 0xff, 0x51, 0x03, 0x70, 0xa1, 0x20]);
-        data = concat(data, [0x00, 0xff, 0x2f, 0x00]);
+        data = concat(data, [0x00, 0xff, 0x51, 0x03]);        //テンポ
+        data = concat(data, toHex(60 * 1000000 / tempoBox.value(), 3));
+        data = concat(data, [0x00, 0xff, 0x2f, 0x00]);        //トラック終端
         
         for(let i = 0; i < this.tracks_.length; ++i){
             this.tracks_[i].updateMidi();
@@ -129,8 +131,7 @@ class Music{
     }
 }
 
-function saveFile(data){
-    //https://urusulambda.wordpress.com/2018/09/15/javascript%E3%81%A7%E3%83%90%E3%82%A4%E3%83%8A%E3%83%AA%E3%83%BC%E3%83%87%E3%83%BC%E3%82%BF%E3%82%92%E4%BD%9C%E3%81%A3%E3%81%A6%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E4%BF%9D%E5%AD%98%E3%81%99/
+function saveFile(data){ //https://urusulambda.wordpress.com/2018/09/15/javascript%E3%81%A7%E3%83%90%E3%82%A4%E3%83%8A%E3%83%AA%E3%83%BC%E3%83%87%E3%83%BC%E3%82%BF%E3%82%92%E4%BD%9C%E3%81%A3%E3%81%A6%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%92%E4%BF%9D%E5%AD%98%E3%81%99/
     let buffer = new ArrayBuffer(data.length);
     let dv = new DataView(buffer);
     for(let i = 0; i < data.length; ++i){
@@ -148,7 +149,7 @@ function saveFile(data){
 
     //データを保存する                                                                                                                                                     
     a.href = url;
-    a.download = "music.midi";
+    a.download = "music.mid";
     a.click();
     window.URL.revokeObjectURL(url);
 }
