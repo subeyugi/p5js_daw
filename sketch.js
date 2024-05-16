@@ -89,8 +89,8 @@ class Track{
         }
 
         query.sort((x, y) => x[1] - y[1]);
-        let data = [0x4d, 0x54, 0x72, 0x6b];//MTrk
-        data = concat(data, toHex(query.length * 4 + 4, 4));
+        let data = [];
+        data = concat(data, [0x00, 0xe0, 0x7f, 0x7f]);              //ピッチベンド
         let preTime = 0;
         for(let i = 0; i < query.length; ++i){
             data = concat(data, [(query[i][1] - preTime), 0x90, query[i][0], query[i][2]]);  //音を鳴らす
@@ -107,20 +107,25 @@ class Music{
     }
 
     createData(){
+        //ヘッダー
         let data = [0x4d, 0x54, 0x68, 0x64];                  //MThd
         data = concat(data, [0x00, 0x00, 0x00, 0x06]);        //ブロック長
         data = concat(data, [0x00, 0x01]);                    //フォーマット
-        data = concat(data, [0x00, this.tracks_.length + 1]); //トラック数
-        data = concat(data, toHex(resolution, 2));       //四分音符の分解能
+        data = concat(data, [0x00, 0x02]); //トラック数
+        data = concat(data, toHex(resolution, 2));            //四分音符の分解能
 
-        data = concat(data, [0x4d, 0x54, 0x72, 0x6b]);
-        data = concat(data, [0x00, 0x00, 0x00, 0x0b]);
+        //トラック1
+        data = concat(data, [0x4d, 0x54, 0x72, 0x6b]);        //MTrk
+        data = concat(data, [0x00, 0x00, 0x00, 0x0b]);        //ブロック長
         data = concat(data, [0x00, 0xff, 0x51, 0x03]);        //テンポ
         data = concat(data, toHex(60 * 1000000 / tempoBox.value(), 3));
         data = concat(data, [0x00, 0xff, 0x2f, 0x00]);        //トラック終端
         
+        //トラック2
         for(let i = 0; i < this.tracks_.length; ++i){
             this.tracks_[i].updateMidi();
+            data = concat(data, [0x4d, 0x54, 0x72, 0x6b]);//MTrk
+            data = concat(data, toHex(this.tracks_[i].midiData_.length, 4));  //ブロック長
             data = concat(data, this.tracks_[i].midiData_);
         }
         return data;
@@ -213,10 +218,10 @@ function draw() {
 }
 
 function mousePressed(){
-    if(!fullscreen()){
+    /*if(!fullscreen()){
       fullscreen(true);
       return;
-    }
+    }*/
     if(isScaleOpen) return;
     if(mouseY >= taskBarY){//範囲外選択
         unselectAll();
